@@ -194,6 +194,7 @@ class JsonApiListener extends ApiListener
                 continue;
             }
 
+            $association = null;
             $associationName = Inflector::camelize($include);
 
             if ($repository !== null) {
