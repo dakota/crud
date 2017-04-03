@@ -188,7 +188,9 @@ class JsonApiListener extends ApiListener
         $wildcardWhitelist = Hash::get((array)$whitelist, $wildcard);
         $wildcardBlacklist = Hash::get((array)$blacklist, $wildcard);
         $contains = [];
+        $includeConfig = $this->config('include');
         foreach ($includes as $include => $nestedIncludes) {
+            $nestedContains = [];
             $includePath = array_merge($path, [$include]);
             $includeDotPath = implode('.', $includePath);
 
@@ -215,17 +217,18 @@ class JsonApiListener extends ApiListener
             }
 
             if (!empty($nestedIncludes)) {
-                $contains[$associationName] = $this->_parseIncludes(
-                    $nestedIncludes,
-                    $blacklist,
-                    $whitelist,
-                    $association ? $association->target() : null,
-                    $includePath
-                );
+                $nestedContains = $this->_parseIncludes($nestedIncludes, $blacklist, $whitelist, $association ? $association->target() : null, $includePath);;
+            }
+
+            if (!empty($nestedContains)) {
+                $contains[$associationName] = $nestedContains;
             } else {
                 $contains[] = $associationName;
+                $includeConfig[] = $includeDotPath;
             }
         }
+
+        $this->config('include', $includeConfig);
 
         return $contains;
     }
@@ -247,16 +250,16 @@ class JsonApiListener extends ApiListener
         }
         $includes = Hash::filter($includes);
 
-        if (empty($includes)) {
+        if (empty($includes) || $options['blacklist'] === true || $options['whitelist'] === false) {
             return;
         }
 
+        $this->config('include', []);
         $includes = Hash::expand(Hash::normalize($includes));
         $blacklist = is_array($options['blacklist']) ? Hash::expand(Hash::normalize(array_fill_keys($options['blacklist'], true))) : $options['blacklist'];
         $whitelist = is_array($options['whitelist']) ? Hash::expand(Hash::normalize(array_fill_keys($options['whitelist'], true))) : $options['whitelist'];
         $contains = $this->_parseIncludes($includes, $blacklist, $whitelist, $subject->query->repository());
 
-        $this->config('include', array_keys(Hash::flatten($includes)));
         $subject->query->contain($contains);
     }
 
